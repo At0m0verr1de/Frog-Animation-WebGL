@@ -57,7 +57,7 @@ loader.load('model.gltf', function (gltf) {
 // scene.add(cube);
 
 //add light
-const light = new THREE.AmbientLight(0xF0000F); // soft white light
+const light = new THREE.AmbientLight(0xFFFFFF); // soft white light
 // const directionalLight = new THREE.DirectionalLight(0xff00ff, 0.5);
 // const light2 = new THREE.PointLight(0xffffff, 1, 100);
 // light2.position.set(2, 10, 2);
