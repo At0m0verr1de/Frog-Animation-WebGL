@@ -3,8 +3,19 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const _VS = `
+precsion mediump float;
+uniform sampler2D utexture;
+uniform vec3 uLightPosition;
+varying vec3 vNormal;
+varying vec2 vTextureCoord;
 void main() {
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    vec4 texelColor = texture2D(uSampler, vTextureCoord);
+    vec3 surfaceNormal = normalize(vNormal);
+    vec3 surfaceToLight = normalize(uLightPosition - g1_FragCoord.xyz);
+    float lightIntensity = dot(surfaceNormal, surfaceToLight);
+    lightIntensity = max(lightIntensity, 0.0);
+    g1_FragColor = texelColor * lightIntensity;
 }
 `;
 
