@@ -48,30 +48,47 @@ const cube = new THREE.Mesh(geometry,
 
     })
 );
+var bone;
 const loader = new GLTFLoader();
 loader.load('model.gltf', function (gltf) {
     scene.add(gltf.scene);
+
+    // const frog = gltf.scene.children[0].children[0];
+    // frog.rotation.z = 3.14159;
+    const armature = gltf.scene.children[0]
+    bone = armature.children[4].children[1].children[0].children[2];
+    // console.log(frog);
+    // frog.material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+    // frog.rotation.y = 3.14159 / 2;
+    // console.log(frog);
+    // console.log(armature);
+    // scene.add(frog);
+    // const bone = gltf.scene.children.find((child) => child.name === "bone2.027");
+    // scene.add(frog);
 }, undefined, function (error) {
     console.error(error);
 });
 // scene.add(cube);
 
 //add light
-const light = new THREE.AmbientLight(0xFFFFFF); // soft white light
-// const directionalLight = new THREE.DirectionalLight(0xff00ff, 0.5);
+// const light = new THREE.AmbientLight(0xFFFFFF); // soft white light
+const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
 // const light2 = new THREE.PointLight(0xffffff, 1, 100);
 // light2.position.set(2, 10, 2);
 // scene.add(light2);
-scene.add(light);
-// scene.add(directionalLight);
+// scene.add(light);
+scene.add(directionalLight);
 // scene.add(cube);
 
-camera.position.z = 5;
+camera.position.z = 10;
+// camera.rotateOnWorldAxis(new THREE.Vector3(1, 0, 0), 3.14159 / 2);
 
+var counter = 1;
 function animate() {
+    counter += 0.4;
     requestAnimationFrame(animate);
-    cube.rotation.x += 0.01;
-    cube.rotation.y += 0.01;
+    bone.rotation.x = 3.14159 / 10 + 0.2 * Math.sin(counter);
+    bone.rotation.y = 0.2 * Math.cos(0.7 * counter);
     renderer.render(scene, camera);
 }
 animate();
