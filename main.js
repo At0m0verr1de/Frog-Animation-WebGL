@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const _VS = `
 void main() {
@@ -19,21 +21,50 @@ const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerH
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.25;
+controls.enableZoom = true;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.5;
+controls.enablePan = true;
+controls.enableKeys = true;
+controls.enableRotate = true;
+controls.update();
+
 
 const geometry = new THREE.BoxGeometry(1, 1, 1);
 const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-const cube = new THREE.Mesh(geometry, new THREE.ShaderMaterial({
+const cube = new THREE.Mesh(geometry,
+    new THREE.ShaderMaterial({
 
-    uniforms: {
-        time: { value: 1.0 },
-        resolution: { value: new THREE.Vector2(1, 0) }
-    },
+        uniforms: {
+            time: { value: 1.0 },
+            resolution: { value: new THREE.Vector2(1, 0) }
+        },
 
-    vertexShader: _VS,
-    fragmentShader: _FS
+        vertexShader: _VS,
+        fragmentShader: _FS
 
-}));
-scene.add(cube);
+    })
+);
+const loader = new GLTFLoader();
+loader.load('model.gltf', function (gltf) {
+    scene.add(gltf.scene);
+}, undefined, function (error) {
+    console.error(error);
+});
+// scene.add(cube);
+
+//add light
+const light = new THREE.AmbientLight(0xF0000F); // soft white light
+// const directionalLight = new THREE.DirectionalLight(0xff00ff, 0.5);
+// const light2 = new THREE.PointLight(0xffffff, 1, 100);
+// light2.position.set(2, 10, 2);
+// scene.add(light2);
+scene.add(light);
+// scene.add(directionalLight);
+// scene.add(cube);
 
 camera.position.z = 5;
 
