@@ -3,36 +3,62 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const _VS = `
-void main() {
+varying vec3 vNormal;
+void main() { 
+    vNormal = normal;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 }
 `;
 
 const _FS = `
-uniform float time;
-uniform vec2 resolution;
-void main() {
-    // realistic frog shader, github copilot pls
+// Define material properties
+uniform vec3 uColor;
+uniform float uShininess;
+uniform float uReflectivity;
 
-    vec2 uv = gl_FragCoord.xy / resolution.xy;
-    vec2 p = uv - 0.5;
-    p.x *= resolution.x / resolution.y;
-    float a = atan(p.x, p.y);
-    float r = length(p) * 2.0;
-    vec3 col = vec3(0.0);
-    float d = 0.0;
-    float z = 1.0;
-    for (int i = 0; i < 3; i++) {
-        d = abs(sin(a * 3.0 - float(i) * 1.0) * 0.2 + 0.2);
-        d += abs(sin(r * 8.0 + time * 0.5) * 0.1 + 0.1);
-        d += abs(sin(r * 20.0 + time * 0.5) * 0.04 + 0.04);
-        d += abs(sin(r * 100.0 + time * 0.5) * 0.004 + 0.004);
-        d = clamp(d, 0.0, 1.0);
-        z = min(z, d);
-    }
-    col = vec3(z);
-    gl_FragColor = vec4(0.0, z, 0.0, 1.0);
+// Define lighting parameters
+uniform vec3 uAmbientColor;
+uniform vec3 uSpecularColor;
+uniform vec3 uLightDirection;
+varying vec3 vNormal;
+// Perlin noise function
+float noise3d(vec3 x) {
+  vec3 p = floor(x);
+  vec3 f = fract(x);
+  f = f * f * (3.0 - 2.0 * f);
+  float n = p.x + p.y * 157.0 + 113.0 * p.z;
+  return mix(mix(mix(fract(sin(n) * 753.5453123), fract(sin(n + 1.0) * 753.5453123), f.x),
+                 mix(fract(sin(n + 157.0) * 753.5453123), fract(sin(n + 158.0) * 753.5453123), f.x), f.y),
+             mix(mix(fract(sin(n + 113.0) * 753.5453123), fract(sin(n + 114.0) * 753.5453123), f.x),
+                 mix(fract(sin(n + 270.0) * 753.5453123), fract(sin(n + 271.0) * 753.5453123), f.x), f.y), f.z);
 }
+void main() {
+    // Define noise parameters
+    float noiseScale = 5.0;
+    float noiseIntensity = 0.15;
+  
+    // Compute noise value
+    float noise = noise3d(vNormal * noiseScale);
+  
+    // Define base color and add noise
+    vec3 baseColor = vec3(0.1, 0.6, 0.2);
+    vec3 color = mix(baseColor, uColor, noise * noiseIntensity);
+  
+    // Compute lighting
+    vec3 light = normalize(uLightDirection);
+    float diffuse = max(dot(vNormal, light), 0.0);
+    vec3 ambient = uAmbientColor * color;
+    vec3 specular = uSpecularColor * pow(max(
+        dot(
+        reflect(-light, vNormal), normalize(-vNormal)
+        ), 0.0
+        ), uShininess);
+  
+    // Combine lighting and material properties
+    vec3 finalColor = mix(ambient + color * diffuse, specular, uReflectivity);
+    gl_FragColor = vec4(finalColor * 1.4, 1.0);
+  }
+  
 `;
 
 const scene = new THREE.Scene();
@@ -59,13 +85,12 @@ loader.load('model.gltf', function (gltf) {
     frog = gltf.scene.children[0].children[1];
     frog.material = new THREE.ShaderMaterial({
         uniforms: {
-            time: { value: 0.0 },
-            resolution: {
-                value: new THREE.Vector2(
-                    window.innerWidth,
-                    window.innerHeight
-                )
-            }
+            uColor: { value: new THREE.Color(0x1f7753) },
+            uShininess: { value: 0.4 },
+            uReflectivity: { value: 0.2 },
+            uAmbientColor: { value: new THREE.Color(0x1f7753) },
+            uSpecularColor: { value: new THREE.Color(0xffffff) },
+            uLightDirection: { value: new THREE.Vector3(0, 1, 0) },
         },
         vertexShader: _VS,
         fragmentShader: _FS
@@ -107,7 +132,7 @@ var counter = 1;
 function animate() {
     counter += 0.4;
     requestAnimationFrame(animate);
-    frog.material.uniforms.time.value = counter;
+    // frog.material.uniforms.time.value = counter;
 
     // bone.rotation.x = 3.14159 / 10 + 0.2 * Math.cos(counter);
     // bone.rotation.y = 0.2 * Math.cos(0.5 * counter);
