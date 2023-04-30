@@ -9,9 +9,29 @@ void main() {
 `;
 
 const _FS = `
+uniform float time;
+uniform vec2 resolution;
 void main() {
-    vec2 uv = gl_FragCoord.xy;
-    gl_FragColor = vec4( 0.4);
+    // realistic frog shader, github copilot pls
+
+    vec2 uv = gl_FragCoord.xy / resolution.xy;
+    vec2 p = uv - 0.5;
+    p.x *= resolution.x / resolution.y;
+    float a = atan(p.x, p.y);
+    float r = length(p) * 2.0;
+    vec3 col = vec3(0.0);
+    float d = 0.0;
+    float z = 1.0;
+    for (int i = 0; i < 3; i++) {
+        d = abs(sin(a * 3.0 - float(i) * 1.0) * 0.2 + 0.2);
+        d += abs(sin(r * 8.0 + time * 0.5) * 0.1 + 0.1);
+        d += abs(sin(r * 20.0 + time * 0.5) * 0.04 + 0.04);
+        d += abs(sin(r * 100.0 + time * 0.5) * 0.004 + 0.004);
+        d = clamp(d, 0.0, 1.0);
+        z = min(z, d);
+    }
+    col = vec3(z);
+    gl_FragColor = vec4(0.0, z, 0.0, 1.0);
 }
 `;
 
@@ -32,31 +52,31 @@ controls.enableKeys = true;
 controls.enableRotate = true;
 controls.update();
 
-
-const geometry = new THREE.BoxGeometry(1, 1, 1);
-const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-const cube = new THREE.Mesh(geometry,
-    new THREE.ShaderMaterial({
-
-        uniforms: {
-            time: { value: 1.0 },
-            resolution: { value: new THREE.Vector2(1, 0) }
-        },
-
-        vertexShader: _VS,
-        fragmentShader: _FS
-
-    })
-);
-var bone;
+var bone, frog;
 const loader = new GLTFLoader();
 loader.load('model.gltf', function (gltf) {
-    scene.add(gltf.scene);
 
-    // const frog = gltf.scene.children[0].children[0];
+    frog = gltf.scene.children[0].children[1];
+    frog.material = new THREE.ShaderMaterial({
+        uniforms: {
+            time: { value: 0.0 },
+            resolution: {
+                value: new THREE.Vector2(
+                    window.innerWidth,
+                    window.innerHeight
+                )
+            }
+        },
+        vertexShader: _VS,
+        fragmentShader: _FS
+    });
+    frog.rotation.z = 3.14159;
+    frog.position.y += 4;
+    frog.position.x += 4;
+    scene.add(gltf.scene);
     // frog.rotation.z = 3.14159;
-    const armature = gltf.scene.children[0]
-    bone = armature.children[4].children[1].children[0].children[2];
+    // const armature = gltf.scene.children[0]
+    // bone = armature.children[4].children[1].children[0].children[2];
     // console.log(frog);
     // frog.material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
     // frog.rotation.y = 3.14159 / 2;
@@ -80,15 +100,17 @@ const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
 scene.add(directionalLight);
 // scene.add(cube);
 
-camera.position.z = 10;
+camera.position.z = 15;
 // camera.rotateOnWorldAxis(new THREE.Vector3(1, 0, 0), 3.14159 / 2);
 
 var counter = 1;
 function animate() {
     counter += 0.4;
     requestAnimationFrame(animate);
-    bone.rotation.x = 3.14159 / 10 + 0.2 * Math.sin(counter);
-    bone.rotation.y = 0.2 * Math.cos(0.7 * counter);
+    frog.material.uniforms.time.value = counter;
+
+    // bone.rotation.x = 3.14159 / 10 + 0.2 * Math.cos(counter);
+    // bone.rotation.y = 0.2 * Math.cos(0.5 * counter);
     renderer.render(scene, camera);
 }
 animate();
