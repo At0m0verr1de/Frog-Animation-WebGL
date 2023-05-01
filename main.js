@@ -33,43 +33,24 @@ uniform vec3 uAmbientColor;
 uniform vec3 uSpecularColor;
 uniform vec3 uLightDirection;
 varying vec3 vNormal;
-// Perlin noise function
-float noise3d(vec3 x) {
-  vec3 p = floor(x);
-  vec3 f = fract(x);
-  f = f * f * (3.0 - 2.0 * f);
-  float n = p.x + p.y * 157.0 + 113.0 * p.z;
-  return mix(mix(mix(fract(sin(n) * 753.5453123), fract(sin(n + 1.0) * 753.5453123), f.x),
-                 mix(fract(sin(n + 157.0) * 753.5453123), fract(sin(n + 158.0) * 753.5453123), f.x), f.y),
-             mix(mix(fract(sin(n + 113.0) * 753.5453123), fract(sin(n + 114.0) * 753.5453123), f.x),
-                 mix(fract(sin(n + 270.0) * 753.5453123), fract(sin(n + 271.0) * 753.5453123), f.x), f.y), f.z);
-}
+
 void main() {
-    // Define noise parameters
-    float noiseScale = 5.0;
-    float noiseIntensity = 0.15;
   
-    // Compute noise value
-    float noise = noise3d(vNormal * noiseScale);
-  
-    // Define base color and add noise
-    vec3 baseColor = vec3(0.1, 0.6, 0.2);
-    vec3 color = mix(baseColor, uColor, noise * noiseIntensity);
-  
-    // Compute lighting
+    vec3 color = uColor;
     vec3 light = normalize(uLightDirection);
     float diffuse = max(dot(vNormal, light), 0.0);
     vec3 ambient = uAmbientColor * color;
-    vec3 specular = uSpecularColor * pow(max(
-        dot(
-        reflect(-light, vNormal), normalize(-vNormal)
-        ), 0.0
+    vec3 specular = uSpecularColor * pow(
+        max(
+            dot(
+                reflect(-light, vNormal), normalize(-vNormal)
+            ), 0.0
         ), uShininess);
   
     // Combine lighting and material properties
     vec3 finalColor = mix(ambient + color * diffuse, specular, uReflectivity);
     gl_FragColor = vec4(finalColor, 1.0);
-  }
+}
   
 `;
 
@@ -92,7 +73,7 @@ controls.update();
 
 const PI = 3.141592653589793238462643383279502884197169399;
 
-var root, frog, armature, eyes, spine0, spine1, head;
+var root, frog, armature, eyes, spine0, spine1, head, material;
 const loader = new GLTFLoader();
 loader.load('model.gltf', function (gltf) {
 
@@ -104,17 +85,19 @@ loader.load('model.gltf', function (gltf) {
     spine0 = root.children[0];
     spine1 = spine0.children[0];
     head = spine1.children[1];
-    console.log(frog);
-    const material = new THREE.ShaderMaterial({
+
+    initials([root, spine0, spine1, head, eyes, frog]);
+    material = new THREE.ShaderMaterial({
         uniforms: {
-            uColor: { value: new THREE.Color(0x1f7753) },
-            uShininess: { value: 0.4 },
-            uReflectivity: { value: 0.2 },
-            uAmbientColor: { value: new THREE.Color(0x1f7753) },
-            uSpecularColor: { value: new THREE.Color(0xffffff) },
+            uColor: { value: new THREE.Color(0x79ab67) },
+            uShininess: { value: 0.5 },
+            uReflectivity: { value: 0.3 },
+            uAmbientColor: { value: new THREE.Color(0x9ac78a) },
+            uSpecularColor: { value: new THREE.Color(0xfafafa) },
             uLightDirection: { value: new THREE.Vector3(0, -1, 0) },
             boneMatrices: { value: new Array(frog.skeleton.bones.length) }
         },
+
         vertexShader: _VS,
         fragmentShader: _FS
     });
@@ -129,38 +112,22 @@ loader.load('model.gltf', function (gltf) {
     }
     material.uniforms.boneMatrices.value = x;
     frog.material = material;
-    // var boneMatrices = [];
-    // for (var i = 0; i < 50; i++) {
-    //     boneMatrices.push(new THREE.Matrix4());
-    // }
-    // frog.material.uniforms.boneMatrices = { value: boneMatrices };
-    // frog.material = frog.material;
-    // armature.add(frog);
-    // frog.bind(root.skeleton);
+    frog.rotation.set(0, 0, PI);
+
+    const eyeMaterial = material.clone();
+    eyeMaterial.uniforms.uColor.value = new THREE.Color(0xb7b7b7);
+    eyeMaterial.uniforms.uAmbientColor.value = new THREE.Color(0xb7b7b7);
+    eyeMaterial.uniforms.uSpecularColor.value = new THREE.Color(0xffffff);
+    eyeMaterial.uniforms.uShininess.value = 0.8;
+    eyeMaterial.uniforms.uReflectivity.value = 0.5;
+    eyes.material = eyeMaterial;
+    eyes.rotation.set(0, 0, PI);
+    scene.add(gltf.scene);
+    // frog.add(frog.skeleton.bones[0]);
+    // frog.bind(frog.skeleton); // 
     // scene.add(frog);
-    // scene.add(gltf.scene);
-    // console.log(gltf.scene);
+    // scene.add(eyes);
 
-
-
-    // Create a new SkinnedMesh from the frog geometry and skeleton
-    // var skinnedMesh = new THREE.SkinnedMesh(frog.geometry, new THREE.MeshStandardMaterial({ color: 0xffffff }), false);
-    frog.add(frog.skeleton.bones[0]); // Add the root bone as a child of the skinned mesh
-    frog.bind(frog.skeleton); // Set up skinning for the skinned mesh
-
-    scene.add(frog); // Add the skinned mesh to the scene
-
-    // frog.rotation.z = PI;
-    // const armature = gltf.scene.children[0]
-    // bone = armature.children[4].children[1].children[0].children[2];
-    // console.log(frog);
-    // frog.material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-    // frog.rotation.y = PI / 2;
-    // console.log(frog);
-    // console.log(armature);
-    // scene.add(frog);
-    // const bone = gltf.scene.children.find((child) => child.name === "bone2.027");
-    // scene.add(frog);
 }, undefined, function (error) {
     console.error(error);
 });
@@ -188,15 +155,25 @@ function animate() {
     updateBones();
     // 
     head.rotation.x = PI / 10 + 0.2 * Math.cos(counter);
-    // head.rotation.y = 0.2 * Math.cos(0.5 * counter);
+    head.rotation.y = head.sRot.y + 0.2 * Math.sin(0.5 * counter);
+    // console.log(spine1.rotation);
     renderer.render(scene, camera);
 }
 animate();
 
 function updateBones() {
+    frog.skeleton.update();
     for (let i = 0; i < frog.skeleton.bones.length; i++) {
         for (let j = i * 16; j < i * 16 + 16; j++) {
-            frog.material.uniforms.boneMatrices.value[i].elements[j % 16] = frog.skeleton.boneMatrices[j];
+            material.uniforms.boneMatrices.value[i].elements[j % 16] = frog.skeleton.boneMatrices[j];
         }
     }
+}
+
+function initials(obj) {
+    obj.forEach(e => {
+        e.sPos = e.position.clone();
+        e.sRot = e.rotation.clone();
+        e.sSca = e.scale.clone();
+    });
 }
