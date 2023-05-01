@@ -3,10 +3,24 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const _VS = `
+uniform mat4 boneMatrices[50];
+
 varying vec3 vNormal;
+
 void main() { 
+    mat4 boneMatX = boneMatrices[ int(skinIndex.x) ];
+    mat4 boneMatY = boneMatrices[ int(skinIndex.y) ];
+    mat4 boneMatZ = boneMatrices[ int(skinIndex.z) ];
+    mat4 boneMatW = boneMatrices[ int(skinIndex.w) ];
+    mat4 skinMatrix = mat4(0.0);
+    skinMatrix += skinWeight.x * boneMatX;
+    skinMatrix += skinWeight.y * boneMatY;
+    skinMatrix += skinWeight.z * boneMatZ;
+    skinMatrix += skinWeight.w * boneMatW;
+
     vNormal = normal;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    vec4 worldPosition = modelMatrix * skinMatrix * vec4(position, 1.0);
+    gl_Position = projectionMatrix * viewMatrix * worldPosition;
 }
 `;
 
@@ -56,7 +70,7 @@ void main() {
   
     // Combine lighting and material properties
     vec3 finalColor = mix(ambient + color * diffuse, specular, uReflectivity);
-    gl_FragColor = vec4(finalColor * 1.4, 1.0);
+    gl_FragColor = vec4(finalColor, 1.0);
   }
   
 `;
@@ -78,33 +92,61 @@ controls.enableKeys = true;
 controls.enableRotate = true;
 controls.update();
 
-var bone, frog;
+const PI = 3.141592653589793238462643383279502884197169399;
+
+var root, frog, armature, eyes, spine0, spine1, head;
 const loader = new GLTFLoader();
 loader.load('model.gltf', function (gltf) {
 
-    frog = gltf.scene.children[0].children[1];
-    frog.material = new THREE.ShaderMaterial({
+    gltf.scene.rotation.set(0, 0, PI);
+    armature = gltf.scene.children[0];
+    eyes = armature.children[0];
+    frog = armature.children[1];
+    root = armature.children[2];
+    spine0 = root.children[0];
+    spine1 = spine0.children[0];
+    head = spine1.children[1];
+    console.log(frog);
+    const material = new THREE.ShaderMaterial({
         uniforms: {
             uColor: { value: new THREE.Color(0x1f7753) },
             uShininess: { value: 0.4 },
             uReflectivity: { value: 0.2 },
             uAmbientColor: { value: new THREE.Color(0x1f7753) },
             uSpecularColor: { value: new THREE.Color(0xffffff) },
-            uLightDirection: { value: new THREE.Vector3(0, 1, 0) },
+            uLightDirection: { value: new THREE.Vector3(0, -1, 0) },
         },
         vertexShader: _VS,
         fragmentShader: _FS
     });
-    frog.rotation.z = 3.14159;
-    frog.position.y += 4;
-    frog.position.x += 4;
-    scene.add(gltf.scene);
-    // frog.rotation.z = 3.14159;
+    frog.material = material;
+    var boneMatrices = [];
+    for (var i = 0; i < 50; i++) {
+        boneMatrices.push(new THREE.Matrix4());
+    }
+    frog.material.uniforms.boneMatrices = { value: boneMatrices };
+    // frog.material = frog.material;
+    // armature.add(frog);
+    // frog.bind(root.skeleton);
+    // scene.add(frog);
+    // scene.add(gltf.scene);
+    // console.log(gltf.scene);
+
+
+
+    // Create a new SkinnedMesh from the frog geometry and skeleton
+    // var skinnedMesh = new THREE.SkinnedMesh(frog.geometry, new THREE.MeshStandardMaterial({ color: 0xffffff }), false);
+    frog.add(frog.skeleton.bones[0]); // Add the root bone as a child of the skinned mesh
+    frog.bind(frog.skeleton); // Set up skinning for the skinned mesh
+
+    scene.add(frog); // Add the skinned mesh to the scene
+
+    // frog.rotation.z = PI;
     // const armature = gltf.scene.children[0]
     // bone = armature.children[4].children[1].children[0].children[2];
     // console.log(frog);
     // frog.material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-    // frog.rotation.y = 3.14159 / 2;
+    // frog.rotation.y = PI / 2;
     // console.log(frog);
     // console.log(armature);
     // scene.add(frog);
@@ -125,8 +167,9 @@ const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
 scene.add(directionalLight);
 // scene.add(cube);
 
-camera.position.z = 15;
-// camera.rotateOnWorldAxis(new THREE.Vector3(1, 0, 0), 3.14159 / 2);
+camera.position.z = 10;
+// camera.position.x = 1;
+// camera.rotateOnWorldAxis(new THREE.Vector3(1, 0, 0), PI / 8);
 
 var counter = 1;
 function animate() {
@@ -134,8 +177,26 @@ function animate() {
     requestAnimationFrame(animate);
     // frog.material.uniforms.time.value = counter;
 
-    // bone.rotation.x = 3.14159 / 10 + 0.2 * Math.cos(counter);
-    // bone.rotation.y = 0.2 * Math.cos(0.5 * counter);
+    // frog.skeleton.update();
+    // var boneMatrices = frog.material.uniforms.boneMatrices.value;
+    // for (var i = 0; i < 50; i++) {
+    //     if (i < frog.skeleton.bones.length) {
+    //         boneMatrices[i].copy(frog.skeleton.bones[i].matrixWorld);
+    //         // boneMatrices[i].identity();
+    //     } else {
+    //         boneMatrices[i].identity();
+    //     }
+    // }
+    // frog.material.uniforms.boneMatrices.value = boneMatrices;
+
+
+    // Set bone matrices as uniform in material
+    // material.uniforms.boneMatrices.value = boneMatrices;
+
+
+    // 
+    head.rotation.x = PI / 10 + 0.2 * Math.cos(counter);
+    // head.rotation.y = 0.2 * Math.cos(0.5 * counter);
     renderer.render(scene, camera);
 }
 animate();
