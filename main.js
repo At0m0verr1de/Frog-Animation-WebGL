@@ -3,25 +3,23 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const _VS = `
-uniform mat4 boneMatrices[50];
-
-varying vec3 vNormal;
-
-void main() { 
-    mat4 boneMatX = boneMatrices[ int(skinIndex.x) ];
-    mat4 boneMatY = boneMatrices[ int(skinIndex.y) ];
-    mat4 boneMatZ = boneMatrices[ int(skinIndex.z) ];
-    mat4 boneMatW = boneMatrices[ int(skinIndex.w) ];
-    mat4 skinMatrix = mat4(0.0);
-    skinMatrix += skinWeight.x * boneMatX;
-    skinMatrix += skinWeight.y * boneMatY;
-    skinMatrix += skinWeight.z * boneMatZ;
-    skinMatrix += skinWeight.w * boneMatW;
-
-    vNormal = normal;
-    vec4 worldPosition = modelMatrix * skinMatrix * vec4(position, 1.0);
-    gl_Position = projectionMatrix * viewMatrix * worldPosition;
-}
+    varying vec3 vNormal;
+    varying vec2 vUv;
+    uniform mat4 bindMatrix;
+    uniform mat4 bindMatrixInverse;
+    uniform mat4 boneMatrices[46];
+    void main() {
+        mat4 skinMatrix = mat4(0.0);
+        skinMatrix += boneMatrices[int(skinIndex.x)] * skinWeight.x;
+        skinMatrix += boneMatrices[int(skinIndex.y)] * skinWeight.y;
+        skinMatrix += boneMatrices[int(skinIndex.z)] * skinWeight.z;
+        skinMatrix += boneMatrices[int(skinIndex.w)] * skinWeight.w;
+        vec4 skinVertex = bindMatrix * vec4(position, 1.0);
+        skinVertex = skinMatrix * skinVertex;
+        vUv = uv;
+        vNormal = (modelMatrix * vec4(normal, 0.0)).xyz;
+        gl_Position = projectionMatrix * modelViewMatrix * skinVertex;
+    }
 `;
 
 const _FS = `
@@ -115,16 +113,27 @@ loader.load('model.gltf', function (gltf) {
             uAmbientColor: { value: new THREE.Color(0x1f7753) },
             uSpecularColor: { value: new THREE.Color(0xffffff) },
             uLightDirection: { value: new THREE.Vector3(0, -1, 0) },
+            boneMatrices: { value: new Array(frog.skeleton.bones.length) }
         },
         vertexShader: _VS,
         fragmentShader: _FS
     });
-    frog.material = material;
-    var boneMatrices = [];
-    for (var i = 0; i < 50; i++) {
-        boneMatrices.push(new THREE.Matrix4());
+    material.skinning = true;
+    let x = [];
+    for (let i = 0; i < 46; i++) {
+        const m = new THREE.Matrix4();
+        for (let j = i * 16; j < i * 16 + 16; j++) {
+            m.elements[j % 16] = frog.skeleton.boneMatrices[j];
+        }
+        x.push(m);
     }
-    frog.material.uniforms.boneMatrices = { value: boneMatrices };
+    material.uniforms.boneMatrices.value = x;
+    frog.material = material;
+    // var boneMatrices = [];
+    // for (var i = 0; i < 50; i++) {
+    //     boneMatrices.push(new THREE.Matrix4());
+    // }
+    // frog.material.uniforms.boneMatrices = { value: boneMatrices };
     // frog.material = frog.material;
     // armature.add(frog);
     // frog.bind(root.skeleton);
@@ -176,27 +185,18 @@ function animate() {
     counter += 0.4;
     requestAnimationFrame(animate);
     // frog.material.uniforms.time.value = counter;
-
-    // frog.skeleton.update();
-    // var boneMatrices = frog.material.uniforms.boneMatrices.value;
-    // for (var i = 0; i < 50; i++) {
-    //     if (i < frog.skeleton.bones.length) {
-    //         boneMatrices[i].copy(frog.skeleton.bones[i].matrixWorld);
-    //         // boneMatrices[i].identity();
-    //     } else {
-    //         boneMatrices[i].identity();
-    //     }
-    // }
-    // frog.material.uniforms.boneMatrices.value = boneMatrices;
-
-
-    // Set bone matrices as uniform in material
-    // material.uniforms.boneMatrices.value = boneMatrices;
-
-
+    updateBones();
     // 
     head.rotation.x = PI / 10 + 0.2 * Math.cos(counter);
     // head.rotation.y = 0.2 * Math.cos(0.5 * counter);
     renderer.render(scene, camera);
 }
 animate();
+
+function updateBones() {
+    for (let i = 0; i < frog.skeleton.bones.length; i++) {
+        for (let j = i * 16; j < i * 16 + 16; j++) {
+            frog.material.uniforms.boneMatrices.value[i].elements[j % 16] = frog.skeleton.boneMatrices[j];
+        }
+    }
+}
