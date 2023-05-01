@@ -3,11 +3,11 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const _VS = `
-    varying vec3 vNormal;
-    varying vec2 vUv;
-    uniform mat4 bindMatrix;
-    uniform mat4 bindMatrixInverse;
-    uniform mat4 boneMatrices[46];
+varying vec3 vNormal;
+varying vec3 vPosition;
+uniform mat4 bindMatrix;
+uniform mat4 bindMatrixInverse;
+uniform mat4 boneMatrices[46];
     void main() {
         mat4 skinMatrix = mat4(0.0);
         skinMatrix += boneMatrices[int(skinIndex.x)] * skinWeight.x;
@@ -16,42 +16,55 @@ const _VS = `
         skinMatrix += boneMatrices[int(skinIndex.w)] * skinWeight.w;
         vec4 skinVertex = bindMatrix * vec4(position, 1.0);
         skinVertex = skinMatrix * skinVertex;
-        vUv = uv;
+        vPosition = position;
         vNormal = (modelMatrix * vec4(normal, 0.0)).xyz;
         gl_Position = projectionMatrix * modelViewMatrix * skinVertex;
     }
 `;
 
-const _FS = `
-// Define material properties
-uniform vec3 uColor;
-uniform float uShininess;
-uniform float uReflectivity;
+const _FS = `uniform vec3 diffuse;
+uniform vec3 emissive;
+uniform vec3 specular;
+uniform float shininess;
+uniform vec3 ambientColor;
+uniform vec3 lightColor;
+uniform vec3 lightDirection;
+uniform float specularStrength;
 
-// Define lighting parameters
-uniform vec3 uAmbientColor;
-uniform vec3 uSpecularColor;
-uniform vec3 uLightDirection;
+
 varying vec3 vNormal;
+varying vec3 vPosition;
+
+float rand(vec2 co) {
+    return fract(sin(dot(co.xy, vec2(12.9898,78.233))) * 43758.5453);
+}
 
 void main() {
-  
-    vec3 color = uColor;
-    vec3 light = normalize(uLightDirection);
-    float diffuse = max(dot(vNormal, light), 0.0);
-    vec3 ambient = uAmbientColor * color;
-    vec3 specular = uSpecularColor * pow(
-        max(
-            dot(
-                reflect(-light, vNormal), normalize(-vNormal)
-            ), 0.0
-        ), uShininess);
-  
-    // Combine lighting and material properties
-    vec3 finalColor = mix(ambient + color * diffuse, specular, uReflectivity);
+    vec3 color = diffuse;
+
+    // Apply some procedural texturing to the frog's skin
+    vec2 uv = vec2(vPosition.x * 0.2, vPosition.z * 0.2);
+    float noise = rand(uv) * 0.2;
+    color += vec3(noise, 0.0, noise * 0.5);
+
+    // Calculate Phong shading
+    vec3 normal = normalize(vNormal);
+    vec3 viewDir = normalize(cameraPosition - vPosition);
+    vec3 lightDir = normalize(lightDirection);
+    vec3 reflectDir = reflect(-lightDir, normal);
+
+    float diffuseStrength = max(dot(normal, lightDir), 0.0);
+    vec3 diffuseColor = lightColor * diffuse * diffuseStrength;
+
+    float specularStrength = pow(max(dot(viewDir, reflectDir), 0.0), shininess) * specularStrength;
+    vec3 specularColor = lightColor * specular * specularStrength;
+
+    vec3 ambientColor = ambientColor * color;
+    vec3 finalColor = ambientColor + diffuseColor + specularColor + emissive;
+
     gl_FragColor = vec4(finalColor, 1.0);
 }
-  
+
 `;
 
 const scene = new THREE.Scene();
@@ -89,12 +102,15 @@ loader.load('model.gltf', function (gltf) {
     initials([root, spine0, spine1, head, eyes, frog]);
     material = new THREE.ShaderMaterial({
         uniforms: {
-            uColor: { value: new THREE.Color(0x79ab67) },
-            uShininess: { value: 0.5 },
-            uReflectivity: { value: 0.3 },
-            uAmbientColor: { value: new THREE.Color(0x9ac78a) },
-            uSpecularColor: { value: new THREE.Color(0xfafafa) },
-            uLightDirection: { value: new THREE.Vector3(0, -1, 0) },
+            diffuse: { value: new THREE.Color(0x9fd259) },
+            emissive: { value: new THREE.Color(0x003300) },
+            specular: { value: new THREE.Color(0xffffff) },
+            shininess: { value: 30 },
+            ambientColor: { value: new THREE.Color(0x242424) },
+            lightColor: { value: new THREE.Color(0xffffff) },
+            lightDirection: { value: new THREE.Vector3(0, -1, 0) },
+            specularStrength: { value: 0.5 },
+
             boneMatrices: { value: new Array(frog.skeleton.bones.length) }
         },
 
@@ -115,11 +131,8 @@ loader.load('model.gltf', function (gltf) {
     frog.rotation.set(0, 0, PI);
 
     const eyeMaterial = material.clone();
-    eyeMaterial.uniforms.uColor.value = new THREE.Color(0xb7b7b7);
-    eyeMaterial.uniforms.uAmbientColor.value = new THREE.Color(0xb7b7b7);
-    eyeMaterial.uniforms.uSpecularColor.value = new THREE.Color(0xffffff);
-    eyeMaterial.uniforms.uShininess.value = 0.8;
-    eyeMaterial.uniforms.uReflectivity.value = 0.5;
+    eyeMaterial.uniforms.emissive.value = new THREE.Color(0x555555);
+    eyeMaterial.uniforms.diffuse.value = new THREE.Color(0xb7b7b7);
     eyes.material = eyeMaterial;
     eyes.rotation.set(0, 0, PI);
     scene.add(gltf.scene);
@@ -140,7 +153,7 @@ const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
 // light2.position.set(2, 10, 2);
 // scene.add(light2);
 // scene.add(light);
-scene.add(directionalLight);
+// scene.add(directionalLight);
 // scene.add(cube);
 
 camera.position.z = 10;
