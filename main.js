@@ -128,12 +128,13 @@ loader.load('model.gltf', function (gltf) {
     material.uniforms.boneMatrices.value = x;
     frog.material = material;
     frog.rotation.set(0, 0, PI);
+    frog.position.y += 2;
 
     const eyeMaterial = material.clone();
     eyeMaterial.uniforms.emissive.value = new THREE.Color(0x555555);
     eyeMaterial.uniforms.diffuse.value = new THREE.Color(0xb7b7b7);
     eyes.material = eyeMaterial;
-    eyes.rotation.set(0, 0, PI);
+    frog.add(eyes);
     scene.add(gltf.scene);
     // frog.add(frog.skeleton.bones[0]);
     // frog.bind(frog.skeleton); // 
@@ -145,21 +146,68 @@ loader.load('model.gltf', function (gltf) {
 });
 
 camera.position.z = 10;
-// camera.position.x = 1;
+// camera.position.y = 1;
 // camera.rotateOnWorldAxis(new THREE.Vector3(1, 0, 0), PI / 8);
+let keyup, keydown, keyright, keyleft, shift, w, a, s, d;
 
-var counter = 1;
+// create event listeners for arrow keys
+document.addEventListener('keydown', event => {
+    if (event.code === 'ArrowUp') keyup = true;
+    if (event.code === 'ArrowDown') keydown = true;
+    if (event.code === 'ArrowLeft') keyleft = true;
+    if (event.code === 'ArrowRight') keyright = true;
+    if (event.code === 'ShiftLeft' || event.code === 'ShiftRight') shift = true;
+    if (event.code === 'KeyW') w = true;
+    if (event.code === 'KeyA') a = true;
+    if (event.code === 'KeyS') s = true;
+    if (event.code === 'KeyD') d = true;
+});
+
+document.addEventListener('keyup', event => {
+    if (event.code === 'ArrowUp') keyup = false;
+    if (event.code === 'ArrowDown') keydown = false;
+    if (event.code === 'ArrowLeft') keyleft = false;
+    if (event.code === 'ArrowRight') keyright = false;
+    if (event.code === 'ShiftLeft' || event.code === 'ShiftRight') shift = false;
+    if (event.code === 'KeyW') w = false;
+    if (event.code === 'KeyA') a = false;
+    if (event.code === 'KeyS') s = false;
+    if (event.code === 'KeyD') d = false;
+});
+
+const clock = new THREE.Clock();
+// clock.start();
+let time = 0, dt;
 function animate() {
-    counter += 0.4;
     requestAnimationFrame(animate);
-    // frog.material.uniforms.time.value = counter;
+    dt = clock.getDelta();
+    time = clock.getElapsedTime() * 10;
+
+    if (shift) {
+        if (keyup) frog.rotation.x += 0.05;
+        if (keydown) frog.rotation.x -= 0.05;
+        if (keyleft) frog.rotation.y += 0.08;
+        if (keyright) frog.rotation.y -= 0.08;
+    } else {
+        if (keyup) frog.position.y -= 0.1;
+        if (keydown) frog.position.y += 0.1;
+        if (keyleft) frog.position.x += 0.1;
+        if (keyright) frog.position.x -= 0.1;
+    }
+    if (a) head.rotation.z = head.sRot.z + lerp(head.rotation.z - head.sRot.z, -PI / 4, 10 * dt);
+    else if (d) head.rotation.z = head.sRot.z + lerp(head.rotation.z - head.sRot.z, PI / 4, 10 * dt);
+    else head.rotation.z = head.sRot.z + lerp(head.rotation.z - head.sRot.z, 0, 10 * dt);
+
     updateBones();
-    // 
-    head.rotation.x = PI / 10 + 0.2 * Math.cos(counter);
-    head.rotation.y = head.sRot.y + 0.2 * Math.sin(0.5 * counter);
+    animationHeadWobble()
     renderer.render(scene, camera);
 }
 animate();
+
+function animationHeadWobble() {
+    head.rotation.x = head.sRot.x + 0.2 * Math.cos(time);
+    head.rotation.y = head.sRot.y + 0.2 * Math.cos(0.5 * time);
+}
 
 function updateBones() {
     frog.skeleton.update();
@@ -176,4 +224,8 @@ function initials(obj) {
         e.sRot = e.rotation.clone();
         e.sSca = e.scale.clone();
     });
+}
+
+function lerp(a, b, t) {
+    return a + (b - a) * t;
 }
