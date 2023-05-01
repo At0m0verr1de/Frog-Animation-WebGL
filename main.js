@@ -16,9 +16,9 @@ uniform mat4 boneMatrices[46];
         skinMatrix += boneMatrices[int(skinIndex.w)] * skinWeight.w;
         vec4 skinVertex = bindMatrix * vec4(position, 1.0);
         skinVertex = skinMatrix * skinVertex;
-        vPosition = position;
         vNormal = (modelMatrix * vec4(normal, 0.0)).xyz;
-        gl_Position = projectionMatrix * modelViewMatrix * skinVertex;
+        vPosition = (modelMatrix * vec4(position, 0.0)).xyz;
+\        gl_Position = projectionMatrix * modelViewMatrix * skinVertex;
     }
 `;
 
@@ -64,7 +64,6 @@ void main() {
 
     gl_FragColor = vec4(finalColor, 1.0);
 }
-
 `;
 
 const scene = new THREE.Scene();
@@ -144,17 +143,6 @@ loader.load('model.gltf', function (gltf) {
 }, undefined, function (error) {
     console.error(error);
 });
-// scene.add(cube);
-
-//add light
-// const light = new THREE.AmbientLight(0xFFFFFF); // soft white light
-const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-// const light2 = new THREE.PointLight(0xffffff, 1, 100);
-// light2.position.set(2, 10, 2);
-// scene.add(light2);
-// scene.add(light);
-// scene.add(directionalLight);
-// scene.add(cube);
 
 camera.position.z = 10;
 // camera.position.x = 1;
@@ -169,7 +157,6 @@ function animate() {
     // 
     head.rotation.x = PI / 10 + 0.2 * Math.cos(counter);
     head.rotation.y = head.sRot.y + 0.2 * Math.sin(0.5 * counter);
-    // console.log(spine1.rotation);
     renderer.render(scene, camera);
 }
 animate();
