@@ -210,7 +210,7 @@ document.addEventListener('keyup', event => {
 const instructionsElement = document.createElement('div');
 instructionsElement.innerText = `Click to start, syncned to beat
 Use arrow keys to move, mouse to rotate/zoom camera
-Use Rshift+arrow keys to rotate, j to jump, q to swim
+Use shift+arrow keys to rotate, j to jump, q to swim
 `;
 
 // add some CSS styling to position the element in the top left corner
