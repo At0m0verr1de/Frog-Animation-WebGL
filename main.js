@@ -114,7 +114,6 @@ loader.load('model.gltf', function (gltf) {
     leg12l = leg11l.children[0];
     head = spine1.children[1];
 
-    initials([root, spine0, spine1, head, eyes, frog, leg0r, leg00r, leg01r, leg0l, leg00l, leg01l, leg1r, leg10r, leg11r, leg1l, leg10l, leg11l, leg12r, leg12l]);
     material = new THREE.ShaderMaterial({
         uniforms: {
             diffuse: { value: new THREE.Color(0x9fd259) },
@@ -156,6 +155,7 @@ loader.load('model.gltf', function (gltf) {
     // frog.bind(frog.skeleton); // 
     // scene.add(frog);
     // scene.add(eyes);
+    initials([root, spine0, spine1, head, eyes, frog, leg0r, leg00r, leg01r, leg0l, leg00l, leg01l, leg1r, leg10r, leg11r, leg1l, leg10l, leg11l, leg12r, leg12l]);
 
 }, undefined, function (error) {
     console.error(error);
@@ -169,7 +169,7 @@ scene.add(plane);
 camera.position.z = 10;
 // camera.position.y = 1;
 // camera.rotateOnWorldAxis(new THREE.Vector3(1, 0, 0), PI / 8);
-let keyup, keydown, keyright, keyleft, shift, w, a, s, d;
+let keyup, keydown, keyright, keyleft, shift, w, a, s, d, j;
 
 // create event listeners for arrow keys
 document.addEventListener('keydown', event => {
@@ -182,6 +182,7 @@ document.addEventListener('keydown', event => {
     if (event.code === 'KeyA') a = true;
     if (event.code === 'KeyS') s = true;
     if (event.code === 'KeyD') d = true;
+    if (event.code === 'KeyJ') j = true;
 });
 
 document.addEventListener('keyup', event => {
@@ -194,10 +195,8 @@ document.addEventListener('keyup', event => {
     if (event.code === 'KeyA') a = false;
     if (event.code === 'KeyS') s = false;
     if (event.code === 'KeyD') d = false;
+    if (event.code === 'KeyJ') j = false;
 });
-
-
-
 
 const instructionsElement = document.createElement('div');
 instructionsElement.innerText = `Click to start, syncned to beat
@@ -220,9 +219,7 @@ const audioLoader = new THREE.AudioLoader();
 
 let started = false;
 
-// add a click event listener to the document
 document.addEventListener('click', () => {
-    // set the started flag to true when the user clicks
     started = true;
     audioLoader.load('asgore.mp3', function (buffer) {
         sound.setBuffer(buffer);
@@ -237,56 +234,72 @@ const bps = 115.262 / 60;
 let c = 1, at = 0;
 // clock.start();
 let time = 0, dt;
+let lastJump = 0;
 function animate() {
     requestAnimationFrame(animate);
-    if (!started) {
-        renderer.render(scene, camera);
-        return;
-    }
+    // if (!started) {
+    //     renderer.render(scene, camera);
+    //     return;
+    // }
     dt = clock.getDelta();
     time = clock.getElapsedTime();
 
     if (shift) {
-        if (keyup) frog.rotation.x += 0.05;
-        if (keydown) frog.rotation.x -= 0.05;
-        if (keyleft) frog.rotation.y += 0.08;
-        if (keyright) frog.rotation.y -= 0.08;
+        if (keyup) frog.rotation.x -= 1.5 * dt;
+        if (keydown) frog.rotation.x += 1.5 * dt;
+        if (keyleft) frog.rotation.y += 2.4 * dt;
+        if (keyright) frog.rotation.y -= 2.4 * dt;
     } else {
         if (keyup) {
-            frog.position.z -= 0.1;
-            frog.position.y -= 0.014;
+            frog.translateZ(3 * dt);
+            frog.sPos.y = frog.position.y;
         }
         if (keydown) {
-            frog.position.z += 0.1;
-            frog.position.y += 0.014;
+            frog.translateZ(-3 * dt);
+            frog.sPos.y = frog.position.y;
         }
-        if (keyleft) frog.position.x += 0.1;
-        if (keyright) frog.position.x -= 0.1;
+        if (keyleft) frog.position.x += 3 * dt;
+        else if (keyright) frog.position.x -= 3 * dt;
+        frog.rotation.x = lerp(frog.rotation.x, frog.sRot.x, 0, 10 * dt);
     }
     if (a) head.rotation.z = lerp(head.rotation.z, head.sRot.z, -PI / 4, 10 * dt);
     else if (d) head.rotation.z = lerp(head.rotation.z, head.sRot.z, PI / 4, 10 * dt);
     else head.rotation.z = lerp(head.rotation.z, head.sRot.z, 0, 10 * dt);
 
+    if (j && time > lastJump) lastJump = time + 1;
+    jump();
     animateLegs();
     updateBones();
     animationHeadWobble()
-    material.uniforms.diffuse.value = material.uniforms.diffuse.value.lerp(new THREE.Color(0x82d119), 1 * dt);
-    c = Math.min(lerp(c, 0, 1, 1 * dt), 1);
+    // material.uniforms.diffuse.value = material.uniforms.diffuse.value.lerp(new THREE.Color(0x82d119), 1 * dt);
     renderer.render(scene, camera);
 }
 animate();
 
 function jump() {
+    if (lastJump >= time) {
+        frog.position.y = (lastJump - time - 1) * (lastJump - time) * 16 + frog.sPos.y;
+        let before = frog.position.y;
+        frog.translateZ(10 * dt);
+        frog.sPos.y += frog.position.y - before;
+    } else {
+        frog.position.y = frog.sPos.y;
 
+    }
+    if (lastJump - time > 0.3) {
+        w = true; s = true;
+    } else {
+        w = false; s = false;
+    }
 }
 
 function animationHeadWobble() {
     head.rotation.x = head.sRot.x + 0.2 * Math.cos(time * 2 * PI * bps);
     head.rotation.y = head.sRot.y + 0.2 * Math.cos(time * PI * bps);
-    if (at != Math.floor(time * bps * 0.5)) {
-        material.uniforms.diffuse.value = new THREE.Color(0x6ba819);
-        at = Math.floor(time * bps * 0.5);
-    }
+    // if (at != Math.floor(time * bps * 0.5)) {
+    //     material.uniforms.diffuse.value = new THREE.Color(0x6ba819);
+    //     at = Math.floor(time * bps * 0.5);
+    // }
 }
 
 function animateLegs() {
