@@ -124,7 +124,6 @@ loader.load('model.gltf', function (gltf) {
             lightColor: { value: new THREE.Color(0xffffff) },
             lightDirection: { value: new THREE.Vector3(0, 1, 0) },
             specularStrength: { value: 0.4 },
-
             boneMatrices: { value: new Array(frog.skeleton.bones.length) }
         },
 
@@ -161,17 +160,15 @@ loader.load('model.gltf', function (gltf) {
     console.error(error);
 });
 
-const plane = new THREE.Mesh(new THREE.PlaneGeometry(100, 100, 100, 100), new THREE.MeshBasicMaterial({ color: 0x232323, side: THREE.DoubleSide }));
+const plane = new THREE.Mesh(new THREE.PlaneGeometry(100, 100, 100, 100), new THREE.MeshBasicMaterial({ color: 0x202020, side: THREE.DoubleSide }));
 plane.rotateX(PI / 2);
 plane.position.y = -2.07;
 scene.add(plane);
-
 camera.position.z = 13;
 // camera.position.y = 1;
 // camera.rotateOnWorldAxis(new THREE.Vector3(1, 0, 0), PI / 8);
 let keyup, keydown, keyright, keyleft, shift, w, a, s, d, j, q;
 
-// create event listeners for arrow keys
 document.addEventListener('keydown', event => {
     if (event.code === 'ArrowUp') keyup = true;
     if (event.code === 'ArrowDown') keydown = true;
@@ -184,6 +181,16 @@ document.addEventListener('keydown', event => {
     if (event.code === 'KeyD') d = true;
     if (event.code === 'KeyJ') j = true;
     if (event.code === 'KeyQ') q = true;
+    if (!started) {
+        audioLoader.load('asgore.mp3', function (buffer) {
+            sound.setBuffer(buffer);
+            sound.setLoop(true);
+            sound.setVolume(0.5);
+            sound.play();
+        });
+    }
+    started = true;
+
 });
 
 document.addEventListener('keyup', event => {
@@ -222,27 +229,29 @@ const audioLoader = new THREE.AudioLoader();
 let started = false;
 
 document.addEventListener('click', () => {
+    if (!started) {
+        audioLoader.load('asgore.mp3', function (buffer) {
+            sound.setBuffer(buffer);
+            sound.setLoop(true);
+            sound.setVolume(0.5);
+            sound.play();
+        });
+    }
     started = true;
-    audioLoader.load('asgore.mp3', function (buffer) {
-        sound.setBuffer(buffer);
-        sound.setLoop(true);
-        sound.setVolume(0.5);
-        // sound.play();
-    });
 });
+
 
 const clock = new THREE.Clock();
 const bps = 115.262 / 60;
-let c = 1, at = 0;
-// clock.start();
+let at = 0;
 let time = 0, dt;
 let lastJump = 0;
 function animate() {
     requestAnimationFrame(animate);
-    // if (!started) {
-    //     renderer.render(scene, camera);
-    //     return;
-    // }
+    if (!started) {
+        renderer.render(scene, camera);
+        return;
+    }
     dt = clock.getDelta();
     time = clock.getElapsedTime();
 
@@ -272,18 +281,20 @@ function animate() {
     jump();
     swim();
     animateLegs();
-    animationHeadWobble()
+    if (time * bps > 2) {
+        animationHeadWobble();
+    }
     updateBones();
-    // material.uniforms.diffuse.value = material.uniforms.diffuse.value.lerp(new THREE.Color(0x82d119), 1 * dt);
+    plane.material.color = plane.material.color.lerp(new THREE.Color(0x202020), 4 * dt);
     renderer.render(scene, camera);
 }
 animate();
 
 function jump() {
     if (lastJump >= time) {
-        frog.position.y = (lastJump - time - 1) * (lastJump - time) * 16 + frog.sPos.y;
+        frog.position.y = (lastJump - time - 1) * (lastJump - time) * 8 + frog.sPos.y;
         let before = frog.position.y;
-        frog.translateZ(10 * dt);
+        frog.translateZ(5 * dt);
         frog.sPos.y += frog.position.y - before;
     } else {
         frog.position.y = frog.sPos.y;
@@ -298,10 +309,10 @@ function jump() {
 function animationHeadWobble() {
     head.rotation.x = head.sRot.x + 0.2 * Math.cos(time * 2 * PI * bps);
     head.rotation.y = head.sRot.y + 0.2 * Math.cos(time * PI * bps);
-    // if (at != Math.floor(time * bps * 0.5)) {
-    //     material.uniforms.diffuse.value = new THREE.Color(0x6ba819);
-    //     at = Math.floor(time * bps * 0.5);
-    // }
+    if (at != Math.floor(time * bps * 0.5)) {
+        plane.material.color = new THREE.Color(0x252525);
+        at = Math.floor(time * bps * 0.5);
+    }
 }
 
 function swim() {
