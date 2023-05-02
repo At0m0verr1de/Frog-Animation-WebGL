@@ -216,6 +216,7 @@ Use shift+arrow keys to rotate, j to jump, q to swim
 // add some CSS styling to position the element in the top left corner
 instructionsElement.style.position = 'absolute';
 instructionsElement.style.top = '10px';
+instructionsElement.style.color = 'white';
 instructionsElement.style.left = '10px';
 document.body.appendChild(instructionsElement);
 
