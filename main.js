@@ -8,21 +8,21 @@ varying vec3 vPosition;
 uniform mat4 bindMatrix;
 uniform mat4 bindMatrixInverse;
 uniform mat4 boneMatrices[46];
-    void main() {
-        mat4 skinMatrix = mat4(0.0);
-        skinMatrix += boneMatrices[int(skinIndex.x)] * skinWeight.x;
-        skinMatrix += boneMatrices[int(skinIndex.y)] * skinWeight.y;
-        skinMatrix += boneMatrices[int(skinIndex.z)] * skinWeight.z;
-        skinMatrix += boneMatrices[int(skinIndex.w)] * skinWeight.w;
-        vec4 skinVertex = bindMatrix * vec4(position, 1.0);
-        skinVertex = skinMatrix * skinVertex;
-        vNormal = (modelMatrix * vec4(normal, 0.0)).xyz;
-        vPosition = (modelMatrix * vec4(position, 0.0)).xyz;
-\        gl_Position = projectionMatrix * modelViewMatrix * skinVertex;
-    }
+void main() {
+    mat4 skinMatrix = mat4(0.0);
+    skinMatrix += boneMatrices[int(skinIndex.x)] * skinWeight.x;
+    skinMatrix += boneMatrices[int(skinIndex.y)] * skinWeight.y;
+    skinMatrix += boneMatrices[int(skinIndex.z)] * skinWeight.z;
+    skinMatrix += boneMatrices[int(skinIndex.w)] * skinWeight.w;
+    vec4 skinVertex = skinMatrix * bindMatrix * vec4(position, 1.0);
+    vNormal = normalize(mat3(skinMatrix) * normal);
+    vPosition = skinVertex.xyz;
+    gl_Position = projectionMatrix * modelViewMatrix * skinVertex;
+}
 `;
 
-const _FS = `uniform vec3 diffuse;
+const _FS = `
+uniform vec3 diffuse;
 uniform vec3 emissive;
 uniform vec3 specular;
 uniform float shininess;
@@ -119,11 +119,11 @@ loader.load('model.gltf', function (gltf) {
             diffuse: { value: new THREE.Color(0x9fd259) },
             emissive: { value: new THREE.Color(0x000000) },
             specular: { value: new THREE.Color(0xffffff) },
-            shininess: { value: 30 },
-            ambientColor: { value: new THREE.Color(0x242424) },
+            shininess: { value: 10 },
+            ambientColor: { value: new THREE.Color(0x111111) },
             lightColor: { value: new THREE.Color(0xffffff) },
-            lightDirection: { value: new THREE.Vector3(0, -1, 0) },
-            specularStrength: { value: 0.8 },
+            lightDirection: { value: new THREE.Vector3(0, 1, 0) },
+            specularStrength: { value: 0.4 },
 
             boneMatrices: { value: new Array(frog.skeleton.bones.length) }
         },
@@ -166,10 +166,10 @@ plane.rotateX(PI / 2);
 plane.position.y = -2.07;
 scene.add(plane);
 
-camera.position.z = 10;
+camera.position.z = 13;
 // camera.position.y = 1;
 // camera.rotateOnWorldAxis(new THREE.Vector3(1, 0, 0), PI / 8);
-let keyup, keydown, keyright, keyleft, shift, w, a, s, d, j;
+let keyup, keydown, keyright, keyleft, shift, w, a, s, d, j, q;
 
 // create event listeners for arrow keys
 document.addEventListener('keydown', event => {
@@ -183,6 +183,7 @@ document.addEventListener('keydown', event => {
     if (event.code === 'KeyS') s = true;
     if (event.code === 'KeyD') d = true;
     if (event.code === 'KeyJ') j = true;
+    if (event.code === 'KeyQ') q = true;
 });
 
 document.addEventListener('keyup', event => {
@@ -196,12 +197,13 @@ document.addEventListener('keyup', event => {
     if (event.code === 'KeyS') s = false;
     if (event.code === 'KeyD') d = false;
     if (event.code === 'KeyJ') j = false;
+    if (event.code === 'KeyQ') q = false;
 });
 
 const instructionsElement = document.createElement('div');
 instructionsElement.innerText = `Click to start, syncned to beat
 Use arrow keys to move, mouse to rotate/zoom camera
-Use shift+arrow keys to rotate
+Use shift+arrow keys to rotate, j to jump, q to swim
 `;
 
 // add some CSS styling to position the element in the top left corner
@@ -225,7 +227,7 @@ document.addEventListener('click', () => {
         sound.setBuffer(buffer);
         sound.setLoop(true);
         sound.setVolume(0.5);
-        sound.play();
+        // sound.play();
     });
 });
 
@@ -268,9 +270,10 @@ function animate() {
 
     if (j && time > lastJump) lastJump = time + 1;
     jump();
+    swim();
     animateLegs();
-    updateBones();
     animationHeadWobble()
+    updateBones();
     // material.uniforms.diffuse.value = material.uniforms.diffuse.value.lerp(new THREE.Color(0x82d119), 1 * dt);
     renderer.render(scene, camera);
 }
@@ -284,11 +287,10 @@ function jump() {
         frog.sPos.y += frog.position.y - before;
     } else {
         frog.position.y = frog.sPos.y;
-
     }
     if (lastJump - time > 0.3) {
         w = true; s = true;
-    } else {
+    } else if (lastJump >= time) {
         w = false; s = false;
     }
 }
@@ -302,6 +304,46 @@ function animationHeadWobble() {
     // }
 }
 
+function swim() {
+    if (q) {
+        let q1 = new THREE.Quaternion();
+        let q2 = new THREE.Quaternion();
+        q2.setFromAxisAngle(new THREE.Vector3(0.5, 0, 0.5), Math.PI / 3 * Math.cos(time * PI * bps));
+        q1.setFromAxisAngle(new THREE.Vector3(1, 0, 0.4), Math.PI / 4 * Math.sin(time * 2 * PI * bps));
+        q1.multiply(leg00r.sQuat);
+        leg00r.quaternion.slerp(q1, 5 * dt);
+        leg01r.quaternion.slerp(q2, 10 * dt);
+        q2.setFromAxisAngle(new THREE.Vector3(0.5, 0, -0.5), -Math.PI / 3 * Math.sin(time * PI * bps));
+        q1.setFromAxisAngle(new THREE.Vector3(1, 0, -0.4), Math.PI / 4 * Math.cos(time * 2 * PI * bps));
+        q1.multiply(leg00l.sQuat);
+        leg00l.quaternion.slerp(q1, 5 * dt);
+        leg01l.quaternion.slerp(q2, 10 * dt);
+
+        let q = new THREE.Quaternion();
+        q2.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 3 + Math.PI / 4 * Math.cos(time * PI * bps));
+        q.setFromAxisAngle(new THREE.Vector3(0.2, 0.7, 0.2), Math.PI / 8 * (Math.sin(time * PI * bps) + 1));
+        q2.multiply(q)
+
+        q1.setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 2);
+        q.setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 6 * Math.cos(time * PI * bps));
+        q1.multiply(q);
+        q1.multiply(leg11r.sQuat);
+        leg11r.quaternion.slerp(q1, 10 * dt);
+        leg12r.quaternion.slerp(q2, 10 * dt);
+
+        q2.setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 3);
+        q.setFromAxisAngle(new THREE.Vector3(0.2, 0.7, 0.2), -Math.PI / 8 * (Math.cos(time * PI * bps) + 1));
+        q2.multiply(q)
+        q1.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2);
+        q.setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 6 * Math.sin(time * PI * bps));
+        q1.multiply(q);
+        q1.multiply(leg11l.sQuat);
+        leg11l.quaternion.slerp(q1, 10 * dt);
+        leg12l.quaternion.slerp(q2, 10 * dt);
+    }
+
+}
+
 function animateLegs() {
     if (s) {
         let q1 = new THREE.Quaternion();
@@ -311,14 +353,12 @@ function animateLegs() {
         q1.multiply(leg00r.sQuat);
         leg00r.quaternion.slerp(q1, 5 * dt);
         leg01r.quaternion.slerp(q2, 10 * dt);
-        q1 = new THREE.Quaternion();
-        q2 = new THREE.Quaternion();
         q2.setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 8);
         q1.setFromAxisAngle(new THREE.Vector3(1, 0, -0.4), Math.PI / 4);
         q1.multiply(leg00l.sQuat);
         leg00l.quaternion.slerp(q1, 5 * dt);
         leg01l.quaternion.slerp(q2, 10 * dt);
-    } else {
+    } else if (!q) {
         leg01l.quaternion.slerp(leg01l.sQuat, 10 * dt);
         leg00l.quaternion.slerp(leg00l.sQuat, 10 * dt);
         leg01r.quaternion.slerp(leg01r.sQuat, 10 * dt);
@@ -333,14 +373,12 @@ function animateLegs() {
         leg11r.quaternion.slerp(q1, 10 * dt);
         leg12r.quaternion.slerp(q2, 10 * dt);
 
-        q1 = new THREE.Quaternion();
-        q2 = new THREE.Quaternion();
         q2.setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 2);
         q1.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2);
         q1.multiply(leg11l.sQuat);
         leg11l.quaternion.slerp(q1, 10 * dt);
         leg12l.quaternion.slerp(q2, 10 * dt);
-    } else {
+    } else if (!q) {
         leg11l.quaternion.slerp(leg11l.sQuat, 10 * dt);
         leg12l.quaternion.slerp(leg12l.sQuat, 10 * dt);
         leg11r.quaternion.slerp(leg11r.sQuat, 10 * dt);
